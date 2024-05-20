@@ -308,7 +308,6 @@ def train():
     total = 0
     pbar = tqdm(enumerate(trainloader))
     for batch_idx, (inputs, targets) in pbar:
-        print(inputs.shape)
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = model(inputs)

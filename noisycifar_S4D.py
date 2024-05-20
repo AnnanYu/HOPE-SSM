@@ -14,7 +14,7 @@ import argparse
 
 import scipy.io as mlio
 
-from models.s4.S4D import S4D
+from models.s4.S4D import S4D as S4D_layer
 from tqdm.auto import tqdm
 
 import numpy as np
@@ -31,6 +31,7 @@ else:
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 # Optimizer
 parser.add_argument('--lr', default=0.01, type=float, help='Learning rate')
+parser.add_argument('--lr_dt', default=0.0, type=float, help='dt Learning rate')
 parser.add_argument('--weight_decay', default=0.01, type=float, help='Weight decay')
 parser.add_argument('--min_dt', default=0.1, type=float, help='min dt')
 parser.add_argument('--max_dt', default=0.1, type=float, help='max dt')
@@ -87,7 +88,7 @@ if args.dataset == 'cifar10':
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            transforms.Lambda(lambda x: x.view(3, 1024).t())
+            transforms.Lambda(lambda x: x.view(3, 1024).t()),
             transforms.Lambda(pad_random_sequence)
         ])
 
@@ -163,7 +164,7 @@ class S4D(nn.Module):
         self.dropouts = nn.ModuleList()
         for _ in range(n_layers):
             self.s4_layers.append(
-                S4D(d_model, dropout=dropout, transposed=True, lr=min(0.001, args.lr), dt_min=args.min_dt, dt_max=args.max_dt)
+                S4D_layer(d_model, dropout=dropout, lr=min(0.001,args.lr), lr_dt=args.lr_dt, dt_min=args.min_dt, dt_max=args.max_dt)
             )
             self.norms.append(nn.LayerNorm(d_model))
             self.dropouts.append(dropout_fn(dropout))

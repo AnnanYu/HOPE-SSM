@@ -33,6 +33,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 # Optimizer
 parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
 parser.add_argument('--lr_min', default=0.0005, type=float, help='SSM Learning rate')
+parser.add_argument('--lr_dt', default=0.0, type=float, help='dt lr')
 parser.add_argument('--weight_decay', default=0.01, type=float, help='Weight decay')
 # Scheduler
 parser.add_argument('--epochs', default=300, type=int, help='Training epochs')

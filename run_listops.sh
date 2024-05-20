@@ -1,1 +1,1 @@
-python3 train.py --experiment=lra/s4-HOPE-listops
+python3 -m train experiment=lra/s4-HOPE-listops

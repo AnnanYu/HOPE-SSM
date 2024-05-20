@@ -9,7 +9,7 @@ from einops import rearrange, repeat
 from src.models.nn import DropoutNd
 import scipy.io as mlio
 
-class HOPE_SSM_Kernel(nn.Module):
+class S4DKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_model, N=64, dt_min=0.0001, dt_max=0.1, lr=None, lr_dt=None, wd=None):
@@ -23,7 +23,7 @@ class HOPE_SSM_Kernel(nn.Module):
 
         C = torch.randn(H, N // 2, dtype=torch.cfloat)
         self.C = nn.Parameter(torch.view_as_real(C))
-        self.register("log_dt", log_dt, lr)
+        self.register("log_dt", log_dt, 0, lr=lr)
 
         log_A_real = torch.log(0.5 * torch.ones(H, N//2))
         A_imag = math.pi * repeat(torch.arange(N//2), 'n -> h n', h=H)
