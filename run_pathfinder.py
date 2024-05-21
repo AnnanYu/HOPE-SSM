@@ -35,6 +35,7 @@ parser.add_argument('--lr', default=0.001, type=float, help='Learning rate')
 parser.add_argument('--lr_min', default=0.0005, type=float, help='SSM Learning rate')
 parser.add_argument('--lr_dt', default=0.0, type=float, help='dt lr')
 parser.add_argument('--weight_decay', default=0.01, type=float, help='Weight decay')
+parser.add_argument('--wd', default=0.0, type=float, help='H weight decay')
 # Scheduler
 parser.add_argument('--epochs', default=300, type=int, help='Training epochs')
 # Dataset
@@ -94,7 +95,7 @@ class HOPE(nn.Module):
         self.dropouts = nn.ModuleList()
         for _ in range(n_layers):
             self.s4_layers.append(
-                HOPE_SSM(d_model, dropout=dropout, transposed=True, lr=min(args.lr_min, args.lr))
+                HOPE_SSM(d_model, dropout=dropout, transposed=True, lr=min(args.lr_min, args.lr), wd=args.wd)
             )
             self.norms.append(nn.BatchNorm1d(d_model))
             self.dropouts.append(dropout_fn(dropout))
