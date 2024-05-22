@@ -1,4 +1,4 @@
-# S4-PTD
+# HOPE-SSM
 
 This is the code repository accompanying the manuscript ''There is HOPE to Avoid HiPPOs for Long-memory State Space Models." The repository is heavily adapted from the ''state-spaces" GitHub repository (https://github.com/HazyResearch/state-spaces.git). While it contains references to existing papers and code repositories, it includes no information that reveals the identities of the manuscript authors.
 
