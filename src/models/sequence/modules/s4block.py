@@ -507,7 +507,7 @@ class SSMKernelDiag(SSMKernel):
         H = self.n_ssm
         Nh = self.N
 
-        Han = torch.randn(H, Nh, dtype=torch.cfloat) / math.sqrt(Nh) / self.scale_factor
+        Han = torch.randn(2, H, Nh, dtype=torch.cfloat) / math.sqrt(Nh) / self.scale_factor
 
         # The DPLR case subclasses this and uses P
         self.register_params(Han, inv_dt)
@@ -558,15 +558,16 @@ class SSMKernelDiag(SSMKernel):
         Hankel = torch.view_as_complex(self.Han)
         Hankel = Hankel * ((torch.arange(self.N, device=dt_expanded.device)+1) ** self.decay_exp)
 
-        samplers = torch.exp(2j * math.pi * repeat(torch.arange(L, device=dt_expanded.device) / L, 'n -> h n', h=self.H))
+        samplers = torch.exp(2j * math.pi * repeat(torch.arange(L, device=dt_expanded.device) / L, 'n -> c h n', c = 2, h=self.H))
         samplers_dt = ((1 + dt_expanded) * samplers + dt_expanded - 1) / ((-1 + dt_expanded) * samplers + dt_expanded + 1)
         samplers_angle = torch.angle(samplers_dt)
 
         enumer = -torch.arange(self.N, dtype=samplers_angle.dtype, device=samplers_angle.device) - 1  # Ensure K is the same dtype and device as H
         samplers_angle = samplers_angle.unsqueeze(-1)
         samplers_angle = torch.exp(1j * samplers_angle * enumer) # (H L N)
-        K = torch.einsum('hn, hln -> hl', Hankel, samplers_angle)
+        K = torch.einsum('chn, chln -> chl', Hankel, samplers_angle)
         K = K.unsqueeze(0)
+        K = K.view(-1, self.channels, self.H, L) # (1+B C H L)
 
         return K, 0
 
@@ -655,7 +656,7 @@ class FFTConv(SequenceModule):
             channels *= 2
         self.activation = Activation(activation, dim=1 if self.transposed else -1)
 
-        self.D = nn.Parameter(torch.randn(channels, self.d_model))
+        self.D = nn.Parameter(torch.randn(channels*2, self.d_model))
 
         if self.bidirectional:
             channels *= 2
@@ -694,12 +695,29 @@ class FFTConv(SequenceModule):
         k, k_state =  self.kernel(L=l_kernel, rate=rate, state=state) # (C H L) (B C H L)
 
         # Convolution
-        x_f = torch.fft.fft(x) # (B H L)
+        if self.bidirectional:
+            k0, k1 = rearrange(k, 's c h l -> c s h l')
+            k = F.pad(k0, (0, L)) + F.pad(k1.flip(-1), (L, 0))
+            # The above has an off-by-one in the reverse direction
+            # This is a deliberate choice since the off-by-one should not affect any applications
+            # This can be amended which may be very slightly slower
+            # k = F.pad(k0, (0, L)) \
+            #         + F.pad(k1[..., 1:].flip(-1), (L+1, 0)) \
+            #         + F.pad(k1[..., :1], (0, l_kernel+L-1))
+
+        # Convolution
+        x = torch.cat((x,torch.flip(x,dims=[-1])),dim=-1) # Make it bidirectional (B H 2L)
+        x_f = torch.fft.fft(x) # (B H 2L)
         y_f = contract('bhl,chl->bchl', x_f, k)
-        y = torch.fft.ifft(y_f).real # (B H L)
+        y = torch.fft.ifft(y_f).real # (B C H 2L)
+        y = rearrange(y, 'b c h l -> (b c) h l') # (B H 2L)
+        # y = rearrange(torch.fft.ifft(y_f).real, 'b c h (l p) -> b c h l p', p = 2).mean(dim=-1) # (B H L)
 
         # Compute D term in state space equation - essentially a skip connection
-        y = y + contract('bhl,ch->bchl', x, self.D)
+        # y = y + contract('bhl,ch->bchl', x, self.D)
+        x = torch.stack([x[..., :L], torch.flip(x[..., L:],dims=[-1])], dim=0)
+        y = torch.stack([y[..., :L], torch.flip(y[..., L:],dims=[-1])], dim=1)
+        y = y + contract('cbhl,ch->bchl', x, self.D)
 
         # Compute state update
         if state is not None:
@@ -868,7 +886,7 @@ class S4Block(SequenceModule):
             )
         '''
         self.output_linear = nn.Sequential(
-            nn.Conv1d(self.d_model, 2*self.d_model, kernel_size=1),
+            nn.Conv1d(2*self.d_model, 2*self.d_model, kernel_size=1),
             nn.GLU(dim=-2),
         )
 

@@ -16,16 +16,16 @@ class HOPE_SSM_Kernel(nn.Module):
         super().__init__()
         # Generate dt
         
-        log_dt = torch.rand(d_model) * (
+        log_dt = torch.rand(2*d_model) * (
             math.log(dt_max) - math.log(dt_min)
         ) + math.log(dt_min)
 
-        hippoinit = mlio.loadmat('H128.mat')
-        H = torch.tensor(hippoinit['H'], dtype=torch.cfloat) / (16 * math.sqrt(2))
-        # H = torch.randn(d_model, N // 2, dtype=torch.cfloat) / math.sqrt(N) / 2
+        # hippoinit = mlio.loadmat('H128.mat')
+        # H = torch.tensor(hippoinit['H'], dtype=torch.cfloat) / (16 * math.sqrt(2))
+        H = torch.randn(2 * d_model, N // 2, dtype=torch.cfloat) / math.sqrt(N) / 2
 
         self.n = N // 2
-        self.h = d_model
+        self.h = 2 * d_model # Account for bidirectional
         self.register("log_dt", log_dt, 0, lr_dt)
         self.register("H", torch.view_as_real(H), wd, lr)
 
@@ -91,12 +91,13 @@ class HOPE_SSM(nn.Module):
         """ Input and output shape (B, H, L) """
         if not self.transposed: u = u.transpose(-1, -2)
         L = u.size(-1)
+        H = self.h
 
         # Compute SSM Kernel
-        k = self.kernel(L=L) # (H L)
+        k = self.kernel(L=L//2) # (H L)
+        k = torch.cat((k[0:H, :], torch.flip(k[H:2*H, :], dims=[1])), dim=1)
 
         # Convolution
-        
         # k_f = torch.fft.fft(k) # (H L)
         u_f = torch.fft.fft(u) # (B H L)
         y = torch.fft.ifft(u_f*k).real # (B H L)

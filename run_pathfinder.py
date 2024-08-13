@@ -110,6 +110,7 @@ class HOPE(nn.Module):
         x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
 
         x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
+        x = torch.cat((x,torch.flip(x,dims=[-1])),dim=-1) # Make it bidirectional
         for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
             # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
 
